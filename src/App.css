@@ -1,3 +1,89 @@
+.auth-screen {
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --page: #ebebeb;
+
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background: var(--page);
+  text-align: center;
+}
+
+.auth-title {
+  margin: 0;
+  font-family: 'Noto Serif KR', serif;
+  font-size: clamp(1.75rem, 5vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.auth-copy {
+  margin: 0.85rem 0 0;
+  max-width: 20rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.auth-login-btn {
+  width: min(100%, 18rem);
+  margin-top: 1.75rem;
+}
+
+.auth-loading {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+.account-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-email {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.logout-btn {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logout-btn:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.logout-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.logout-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .layout {
   --ink: #1a1a1a;
   --ink-soft: #4a4a4a;

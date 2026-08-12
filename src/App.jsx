@@ -6,9 +6,13 @@ import MarkdownResult from './MarkdownResult'
 import { supabase } from './supabase'
 
 const READING_COLUMNS =
-  'id, name, birth_date, birth_time, gender, calendar_type, result, created_at'
+  'id, user_id, name, birth_date, birth_time, gender, calendar_type, result, created_at'
 
 function App() {
+  const [session, setSession] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [authBusy, setAuthBusy] = useState(false)
+
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [birthTime, setBirthTime] = useState('')
@@ -23,10 +27,12 @@ function App() {
   const [readings, setReadings] = useState([])
   const [selectedId, setSelectedId] = useState(null)
 
-  const busy = loading || saving
+  const busy = loading || saving || authBusy
+  const user = session?.user ?? null
 
   function readingPayload(resultText) {
     return {
+      user_id: user.id,
       name,
       birth_date: birthDate,
       birth_time: birthTime || null,
@@ -36,24 +42,81 @@ function App() {
     }
   }
 
-  async function loadReadings() {
-    const { data, error: fetchError } = await supabase
-      .from('saju_readings')
-      .select(READING_COLUMNS)
-      .order('created_at', { ascending: false })
+  useEffect(() => {
+    let cancelled = false
 
-    if (fetchError) {
-      console.error(fetchError)
-      setError(fetchError.message || '저장된 사주 목록을 불러오지 못했습니다.')
+    async function fetchReadings() {
+      const { data, error: fetchError } = await supabase
+        .from('saju_readings')
+        .select(READING_COLUMNS)
+        .order('created_at', { ascending: false })
+
+      if (cancelled) return
+
+      if (fetchError) {
+        console.error(fetchError)
+        setError(fetchError.message || '저장된 사주 목록을 불러오지 못했습니다.')
+        return
+      }
+
+      setReadings(data ?? [])
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setAuthReady(true)
+
+      if (!nextSession?.user) {
+        setReadings([])
+        return
+      }
+
+      void fetchReadings()
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
+  }, [])
+
+  async function handleGoogleLogin() {
+    setAuthBusy(true)
+    setError('')
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    })
+
+    if (oauthError) {
+      console.error(oauthError)
+      setError(oauthError.message || 'Google 로그인에 실패했습니다.')
+      setAuthBusy(false)
+    }
+  }
+
+  async function handleLogout() {
+    setAuthBusy(true)
+    setError('')
+
+    const { error: signOutError } = await supabase.auth.signOut()
+
+    if (signOutError) {
+      console.error(signOutError)
+      setError(signOutError.message || '로그아웃에 실패했습니다.')
+      setAuthBusy(false)
       return
     }
 
-    setReadings(data ?? [])
+    handleNewReading()
+    setReadings([])
+    setAuthBusy(false)
   }
-
-  useEffect(() => {
-    loadReadings()
-  }, [])
 
   async function handleAnalyze() {
     setLoading(true)
@@ -178,9 +241,50 @@ function App() {
     setError('')
   }
 
+  if (!authReady) {
+    return (
+      <div className="auth-screen">
+        <p className="auth-loading">로그인 상태 확인 중...</p>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="auth-screen">
+        <h1 className="auth-title">사주 미</h1>
+        <p className="auth-copy">Google 계정으로 로그인해 내 사주를 저장하세요.</p>
+        <button
+          type="button"
+          className="analyze-btn auth-login-btn"
+          onClick={handleGoogleLogin}
+          disabled={authBusy}
+        >
+          {authBusy ? '이동 중...' : 'Google로 로그인'}
+        </button>
+        {error && (
+          <p className="error" style={{ color: 'red' }}>
+            {error}
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="layout">
       <aside className="sidebar" aria-label="저장된 사주 목록">
+        <div className="account-bar">
+          <p className="account-email">{user.email}</p>
+          <button
+            type="button"
+            className="logout-btn"
+            onClick={handleLogout}
+            disabled={busy}
+          >
+            로그아웃
+          </button>
+        </div>
         <button
           type="button"
           className="new-reading-btn"
