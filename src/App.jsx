@@ -5,6 +5,9 @@ import { requestSajuAnalysis } from './gemini'
 import MarkdownResult from './MarkdownResult'
 import { supabase } from './supabase'
 
+const READING_COLUMNS =
+  'id, name, birth_date, birth_time, gender, calendar_type, result, created_at'
+
 function App() {
   const [name, setName] = useState('')
   const [birthDate, setBirthDate] = useState('')
@@ -14,15 +17,29 @@ function App() {
 
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const [readings, setReadings] = useState([])
   const [selectedId, setSelectedId] = useState(null)
 
+  const busy = loading || saving
+
+  function readingPayload(resultText) {
+    return {
+      name,
+      birth_date: birthDate,
+      birth_time: birthTime || null,
+      gender: gender || null,
+      calendar_type: calendarType || null,
+      result: resultText,
+    }
+  }
+
   async function loadReadings() {
     const { data, error: fetchError } = await supabase
       .from('saju_readings')
-      .select('id, name, birth_date, birth_time, gender, calendar_type, result, created_at')
+      .select(READING_COLUMNS)
       .order('created_at', { ascending: false })
 
     if (fetchError) {
@@ -42,7 +59,6 @@ function App() {
     setLoading(true)
     setError('')
     setResult('')
-    setSelectedId(null)
 
     try {
       const prompt = buildSajuPrompt({
@@ -55,30 +71,88 @@ function App() {
       const text = await requestSajuAnalysis(prompt)
       setResult(text)
 
-      const { data, error: insertError } = await supabase
-        .from('saju_readings')
-        .insert({
-          name,
-          birth_date: birthDate,
-          birth_time: birthTime || null,
-          gender: gender || null,
-          calendar_type: calendarType || null,
-          result: text,
-        })
-        .select('id, name, birth_date, birth_time, gender, calendar_type, result, created_at')
-        .single()
+      if (selectedId) {
+        const { data, error: updateError } = await supabase
+          .from('saju_readings')
+          .update(readingPayload(text))
+          .eq('id', selectedId)
+          .select(READING_COLUMNS)
+          .single()
 
-      if (insertError) {
-        throw insertError
+        if (updateError) throw updateError
+
+        setReadings((prev) =>
+          prev.map((reading) => (reading.id === data.id ? data : reading))
+        )
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('saju_readings')
+          .insert(readingPayload(text))
+          .select(READING_COLUMNS)
+          .single()
+
+        if (insertError) throw insertError
+
+        setReadings((prev) => [data, ...prev])
+        setSelectedId(data.id)
       }
-
-      setReadings((prev) => [data, ...prev])
-      setSelectedId(data.id)
     } catch (err) {
       console.error(err)
       setError(err.message || '사주 해석 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleSave() {
+    if (!selectedId) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from('saju_readings')
+        .update(readingPayload(result))
+        .eq('id', selectedId)
+        .select(READING_COLUMNS)
+        .single()
+
+      if (updateError) throw updateError
+
+      setReadings((prev) =>
+        prev.map((reading) => (reading.id === data.id ? data : reading))
+      )
+    } catch (err) {
+      console.error(err)
+      setError(err.message || '사주 정보를 저장하지 못했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedId) return
+    if (!window.confirm('이 사주를 삭제할까요?')) return
+
+    setSaving(true)
+    setError('')
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('saju_readings')
+        .delete()
+        .eq('id', selectedId)
+
+      if (deleteError) throw deleteError
+
+      setReadings((prev) => prev.filter((reading) => reading.id !== selectedId))
+      handleNewReading()
+    } catch (err) {
+      console.error(err)
+      setError(err.message || '사주를 삭제하지 못했습니다.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -111,7 +185,7 @@ function App() {
           type="button"
           className="new-reading-btn"
           onClick={handleNewReading}
-          disabled={loading}
+          disabled={busy}
         >
           새 사주 만들기
         </button>
@@ -130,6 +204,7 @@ function App() {
                       : 'sidebar-item'
                   }
                   onClick={() => handleSelectReading(reading)}
+                  disabled={busy}
                 >
                   {reading.name}
                 </button>
@@ -203,10 +278,35 @@ function App() {
           type="button"
           className="analyze-btn"
           onClick={handleAnalyze}
-          disabled={loading}
+          disabled={busy}
         >
-          {loading ? '풀이 중...' : '내 사주 보기'}
+          {loading
+            ? '풀이 중...'
+            : selectedId
+              ? '다시 풀이하기'
+              : '내 사주 보기'}
         </button>
+
+        {selectedId && (
+          <div className="action-row">
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={handleSave}
+              disabled={busy}
+            >
+              {saving ? '저장 중...' : '정보 저장'}
+            </button>
+            <button
+              type="button"
+              className="danger-btn"
+              onClick={handleDelete}
+              disabled={busy}
+            >
+              삭제
+            </button>
+          </div>
+        )}
 
         {error && (
           <p className="error" style={{ color: 'red' }}>
