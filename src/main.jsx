@@ -1,9 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.jsx'
-import ResultPage from './ResultPage.jsx'
-import { isResultPath, parseResultPath } from './resultRoute.js'
+import { isResultPath, parseResultPath } from './lib/resultRoute.js'
+import ResultPage from './pages/ResultPage.jsx'
+import './styles/index.css'
+import './styles/App.css'
 
 const pathname = window.location.pathname
 const readingId = parseResultPath(pathname)

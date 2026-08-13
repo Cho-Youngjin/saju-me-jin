@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import Mascot from './Mascot'
+import Mascot from '../shared/Mascot'
 
 const EMPTY_FORM = {
   name: '',

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { buildResultShareUrl } from './resultRoute'
-import { shareOrCopy } from './share'
+import { trackEvent } from '../../lib/analytics'
+import { buildResultShareUrl } from '../../lib/resultRoute'
+import { shareOrCopy } from '../../lib/share'
 
 function browserShare() {
   return navigator.share?.bind(navigator)
@@ -34,6 +35,12 @@ export default function ShareButton({
         share: browserShare(),
         writeText: browserWriteText(),
       })
+      if (result === 'copied' || result === 'shared') {
+        trackEvent('share', {
+          method: result,
+          content_type: 'reading',
+        })
+      }
       if (result === 'copied') {
         setStatus('링크를 복사했다냥.')
       }

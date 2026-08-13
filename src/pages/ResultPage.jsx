@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import './App.css'
-import MarkdownResult from './MarkdownResult'
-import Mascot from './Mascot'
-import ShareButton from './ShareButton'
-import { supabase } from './supabase'
+import MarkdownResult from '../components/reading/MarkdownResult'
+import ShareButton from '../components/reading/ShareButton'
+import Mascot from '../components/shared/Mascot'
+import { trackEvent } from '../lib/analytics'
+import { fetchPublicReading } from '../lib/sajuApi'
 
 export default function ResultPage({ readingId }) {
   const [reading, setReading] = useState(null)
@@ -17,23 +17,21 @@ export default function ResultPage({ readingId }) {
 
     let cancelled = false
 
-    supabase
-      .rpc('get_public_reading', { p_id: readingId })
-      .then(({ data, error: fetchError }) => {
+    fetchPublicReading(readingId)
+      .then((row) => {
         if (cancelled) return
 
-        if (fetchError) {
-          setError(fetchError.message || '해석을 불러오지 못했다냥.')
-          return
-        }
-
-        const row = Array.isArray(data) ? data[0] : data
         if (!row) {
           setError('이 해석을 찾을 수 없다냥.')
           return
         }
 
         setReading(row)
+        trackEvent('view_shared_result', { reading_id: row.id })
+      })
+      .catch((fetchError) => {
+        if (cancelled) return
+        setError(fetchError.message || '해석을 불러오지 못했다냥.')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
