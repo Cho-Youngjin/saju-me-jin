@@ -4,7 +4,6 @@
 
 생년월일과 태어난 시간을 넣으면 Gemini가 사주를 해석하고, Google 로그인 후 해석을 저장·공유할 수 있습니다.
 
-**라이브:** [https://saju-me-jin.vercel.app](https://saju-me-jin.vercel.app)
 
 ## 기능
 
